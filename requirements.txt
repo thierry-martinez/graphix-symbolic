@@ -1,2 +1,2 @@
-graphix @ git+https://github.com/TeamGraphix/graphix
+graphix @ git+https://github.com/thierry-martinez/graphix.git@rename-simulate
 sympy>=1.9

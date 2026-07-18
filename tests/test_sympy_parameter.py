@@ -16,9 +16,9 @@ def test_parameter_circuit_simulation(fx_rng: Generator) -> None:
     alpha = SympyParameter("alpha")
     circuit = Circuit(1)
     circuit.rz(0, alpha)
-    result_subs_then_simulate = circuit.subs(alpha, 0.5).simulate_statevector().statevec
+    result_subs_then_simulate = circuit.subs(alpha, 0.5).simulate().statevec
     assert result_subs_then_simulate.psi.dtype == np.complex128
-    result_simulate_then_subs = circuit.simulate_statevector().statevec.subs(alpha, 0.5)
+    result_simulate_then_subs = circuit.simulate().statevec.subs(alpha, 0.5)
     assert np.allclose(result_subs_then_simulate.psi, result_simulate_then_subs.psi)
 
 
@@ -29,8 +29,8 @@ def test_parameter_parallel_substitution(fx_rng: Generator) -> None:
     circuit.rz(0, alpha)
     circuit.rz(1, beta)
     mapping: dict[Parameter, float] = {alpha: 0.5, beta: 0.4}
-    result_subs_then_simulate = circuit.xreplace(mapping).simulate_statevector().statevec
-    result_simulate_then_subs = circuit.simulate_statevector().statevec.xreplace(mapping)
+    result_subs_then_simulate = circuit.xreplace(mapping).simulate().statevec
+    result_simulate_then_subs = circuit.simulate().statevec.xreplace(mapping)
     assert np.allclose(result_subs_then_simulate.psi, result_simulate_then_subs.psi)
 
 
@@ -40,10 +40,10 @@ def test_parameter_pattern_simulation(backend, fx_rng: Generator) -> None:
     circuit = Circuit(1)
     circuit.rz(0, alpha)
     pattern = circuit.transpile().pattern
-    result_subs_then_simulate = pattern.subs(alpha, 0.5).simulate_pattern(backend, rng=fx_rng)
+    result_subs_then_simulate = pattern.subs(alpha, 0.5).simulate(backend, rng=fx_rng)
     # We cannot compute probabilities on symbolic states; we explore
     # one arbitrary branch.
-    result_simulate_then_subs = pattern.simulate_pattern(
+    result_simulate_then_subs = pattern.simulate(
         backend, branch_selector=RandomBranchSelector(pr_calc=False), rng=fx_rng, symbolic=True
     ).subs(alpha, 0.5)
     if backend == "statevector":

@@ -179,12 +179,12 @@ class SympyParameter(Parameter, SympyExpression):
         # explored branch is the same for the two simulations.
         seed = np.random.integers(2**63)
         # simulate with parameter assignment
-        sv = pattern.subs(alpha, 0.5).simulate_pattern(pr_calc=False, rng=np.random.default_rng(seed))
+        sv = pattern.subs(alpha, 0.5).simulate(pr_calc=False, rng=np.random.default_rng(seed))
         # simulate without pattern assignment
         # (the resulting state vector is symbolic)
         # Note: pr_calc=False is mandatory since we cannot compute probabilities on
         # symbolic states; we explore one arbitrary branch.
-        sv2 = pattern.simulate_pattern(pr_calc=False, rng=np.random.default_rng(seed))
+        sv2 = pattern.simulate(pr_calc=False, rng=np.random.default_rng(seed))
         # Substituting alpha in the resulting state vector should yield the same result
         assert np.allclose(sv.psi, sv2.subs(alpha, 0.5).psi)
     """
