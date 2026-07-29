@@ -54,7 +54,7 @@ def test_parameter_pattern_simulation(backend, fx_rng: Generator) -> None:
     elif backend == "densitymatrix":
         symb_backend = DensityMatrixBackend(branch_selector=RandomBranchSelector(pr_calc=False), symbolic=True)
 
-    result_simulate_then_subs = pattern.simulate_pattern(backend=symb_backend, rng=fx_rng).subs(alpha, 0.5)
+    result_simulate_then_subs = pattern.simulate(backend=symb_backend, rng=fx_rng).subs(alpha, 0.5)
     if backend == "statevector":
         assert np.allclose(result_subs_then_simulate.flatten(), result_simulate_then_subs.flatten())
     elif backend == "densitymatrix":
