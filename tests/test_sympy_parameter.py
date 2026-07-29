@@ -16,9 +16,9 @@ def test_parameter_circuit_simulation(fx_rng: Generator) -> None:
     alpha = SympyParameter("alpha")
     circuit = Circuit(1)
     circuit.rz(0, alpha)
-    result_subs_then_simulate = circuit.subs(alpha, 0.5).simulate().statevec
+    result_subs_then_simulate = circuit.subs(alpha, 0.5).simulate().state
     assert result_subs_then_simulate.psi.dtype == np.complex128
-    result_simulate_then_subs = circuit.simulate().statevec.subs(alpha, 0.5)
+    result_simulate_then_subs = circuit.simulate().state.subs(alpha, 0.5)
     assert np.allclose(result_subs_then_simulate.psi, result_simulate_then_subs.psi)
 
 
@@ -29,8 +29,8 @@ def test_parameter_parallel_substitution(fx_rng: Generator) -> None:
     circuit.rz(0, alpha)
     circuit.rz(1, beta)
     mapping: dict[Parameter, float] = {alpha: 0.5, beta: 0.4}
-    result_subs_then_simulate = circuit.xreplace(mapping).simulate().statevec
-    result_simulate_then_subs = circuit.simulate().statevec.xreplace(mapping)
+    result_subs_then_simulate = circuit.xreplace(mapping).simulate().state
+    result_simulate_then_subs = circuit.simulate().state.xreplace(mapping)
     assert np.allclose(result_subs_then_simulate.psi, result_simulate_then_subs.psi)
 
 
