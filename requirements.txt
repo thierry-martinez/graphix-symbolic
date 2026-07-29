@@ -1,2 +1,2 @@
-graphix @ git+https://github.com/TeamGraphix/graphix
+graphix @ git+https://github.com/thierry-martinez/graphix@in-place_methods
 sympy>=1.9

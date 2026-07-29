@@ -5,24 +5,32 @@ Simulate MBQC with density matrix representation.
 
 from __future__ import annotations
 
-import copy
 import dataclasses
 import math
 from collections.abc import Collection, Iterable
+from copy import copy as _copy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
 from graphix import linalg_validations as lv
-from graphix import parameter
 from graphix.channels import KrausChannel
-from graphix.parameter import Expression, ExpressionOrFloat, ExpressionOrSupportsComplex
+from graphix.parameter import (
+    Expression,
+    ExpressionOrFloat,
+    ExpressionOrSupportsComplex,
+    InplaceParameterizable,
+    with_parameter,
+    with_parameters,
+)
 from graphix.sim.base_backend import DenseState, DenseStateBackend, Matrix, kron, matmul, outer, tensordot, vdot
 from graphix.sim.statevec import _check_permutation
 from graphix.states import BasicStates, State
+
+# override introduced in Python 3.12
 from typing_extensions import override
 
-from graphix_symbolic.statevec import CNOT_TENSOR, CZ_TENSOR, SWAP_TENSOR, Statevec
+from graphix_symbolic.statevec import CNOT_TENSOR, CZ_TENSOR, SWAP_TENSOR, Statevector
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -33,7 +41,7 @@ if TYPE_CHECKING:
     from graphix.sim.data import Data
 
 
-class DensityMatrix(DenseState):
+class DensityMatrix(DenseState, InplaceParameterizable):
     """DensityMatrix object."""
 
     rho: Matrix
@@ -45,7 +53,7 @@ class DensityMatrix(DenseState):
     ) -> None:
         """Initialize density matrix objects.
 
-        The behaviour builds on the one of *graphix.statevec.Statevec*.
+        The behaviour builds on the one of *graphix.statevec.Statevector*.
         `data` can be:
         - a single :class:`graphix.states.State` (classical description of a quantum state)
         - an iterable of :class:`graphix.states.State` objects
@@ -57,7 +65,7 @@ class DensityMatrix(DenseState):
         If only one :class:`graphix.states.State` is provided and nqubit is a valid integer, initialize the statevector
         in the tensor product state.
         If both `nqubit` and `data` are provided, consistency of the dimensions is checked.
-        If a *graphix.statevec.Statevec* or *graphix.statevec.DensityMatrix* is passed, returns a copy.
+        If a *graphix.statevec.Statevector* or *graphix.statevec.DensityMatrix* is passed, returns a copy.
 
 
         :param data: input data to prepare the state. Can be a classical description or a numerical input, defaults to graphix.states.BasicStates.PLUS
@@ -101,7 +109,7 @@ class DensityMatrix(DenseState):
                     if not lv.is_psd(self.rho):
                         raise ValueError("Density matrix must be positive semi-definite.")
                 return
-        statevec = Statevec(data, nqubit)
+        statevec = Statevector(data, nqubit)
         # NOTE this works since np.outer flattens the inputs!
         self.rho = outer(statevec.psi, statevec.psi.conj())
 
@@ -233,7 +241,7 @@ class DensityMatrix(DenseState):
         if op.shape != (2, 2):
             raise ValueError("op must be 2x2 matrix.")
 
-        st1 = copy.copy(self)
+        st1 = _copy(self)
         st1.normalize()
 
         nqubit = self.nqubit
@@ -339,7 +347,7 @@ class DensityMatrix(DenseState):
 
         self.rho = rho_res.reshape((2**nqubit_after, 2**nqubit_after))
 
-    def fidelity(self, statevec: Statevec) -> ExpressionOrFloat:
+    def fidelity(self, statevec: Statevector) -> ExpressionOrFloat:
         """Calculate the fidelity against reference statevector.
 
         Parameters
@@ -384,7 +392,7 @@ class DensityMatrix(DenseState):
             raise TypeError("Can't apply a channel that is not a Channel object.")
 
         for k_op in channel:
-            dm = copy.copy(self)
+            dm = _copy(self)
             dm.evolve(k_op.operator, qargs)
             result_array += k_op.coef * np.conj(k_op.coef) * dm.rho
             # reinitialize to input density matrix
@@ -405,20 +413,32 @@ class DensityMatrix(DenseState):
         noise : Noise
             Noise to apply
         """
-        channel = noise.to_kraus_channel()
+        channel = noise.to_krauschannel()
         self.apply_channel(channel, qubits)
 
-    def subs(self, variable: Parameter, substitute: ExpressionOrSupportsFloat) -> DensityMatrix:
-        """Return a copy of the density matrix where all occurrences of the given variable in measurement angles are substituted by the given value."""
-        result = copy.copy(self)
-        result.rho = np.vectorize(lambda value: parameter.subs(value, variable, substitute))(self.rho)
-        return result
+    @override
+    def replace_parameter(
+        self, variable: Parameter, substitute: ExpressionOrSupportsFloat, *, copy: bool = False
+    ) -> DensityMatrix:
+        rho = np.vectorize(lambda value: with_parameter(value, variable, substitute))(self.rho)
+        if copy:
+            result = _copy(self)
+            result.rho = rho
+            return result
+        self.rho = rho
+        return self
 
-    def xreplace(self, assignment: Mapping[Parameter, ExpressionOrSupportsFloat]) -> DensityMatrix:
-        """Return a copy of the density matrix where all occurrences of the given keys in measurement angles are substituted by the given values in parallel."""
-        result = copy.copy(self)
-        result.rho = np.vectorize(lambda value: parameter.xreplace(value, assignment))(self.rho)
-        return result
+    @override
+    def replace_parameters(
+        self, assignment: Mapping[Parameter, ExpressionOrSupportsFloat], *, copy: bool = False
+    ) -> DensityMatrix:
+        rho = np.vectorize(lambda value: with_parameters(value, assignment))(self.rho)
+        if copy:
+            result = _copy(self)
+            result.rho = rho
+            return result
+        self.rho = rho
+        return self
 
     @override
     def permute(self, permutation: Sequence[int]) -> None:
