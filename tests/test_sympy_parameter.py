@@ -17,11 +17,11 @@ def test_parameter_circuit_simulation(fx_rng: Generator) -> None:
     alpha = SympyParameter("alpha")
     circuit = Circuit(1)
     circuit.rz(0, alpha)
-    result_subs_then_simulate = circuit.subs(alpha, 0.5).simulate_statevector().statevec
+    result_subs_then_simulate = circuit.subs(alpha, 0.5).simulate().state
     assert result_subs_then_simulate.psi.dtype == np.complex128
-    result_simulate_then_subs = circuit.simulate_statevector(
+    result_simulate_then_subs = circuit.simulate(
         backend=StatevectorBackend(branch_selector=RandomBranchSelector(pr_calc=False), symbolic=True)
-    ).statevec.subs(alpha, 0.5)
+    ).state.subs(alpha, 0.5)
     assert np.allclose(result_subs_then_simulate.flatten(), result_simulate_then_subs.psi)
 
 
@@ -32,10 +32,10 @@ def test_parameter_parallel_substitution(fx_rng: Generator) -> None:
     circuit.rz(0, alpha)
     circuit.rz(1, beta)
     mapping: dict[Parameter, float] = {alpha: 0.5, beta: 0.4}
-    result_subs_then_simulate = circuit.xreplace(mapping).simulate_statevector().statevec
-    result_simulate_then_subs = circuit.simulate_statevector(
+    result_subs_then_simulate = circuit.xreplace(mapping).simulate().state
+    result_simulate_then_subs = circuit.simulate(
         backend=StatevectorBackend(branch_selector=RandomBranchSelector(pr_calc=False), symbolic=True)
-    ).statevec.xreplace(mapping)
+    ).state.xreplace(mapping)
     assert np.allclose(result_subs_then_simulate.flatten(), result_simulate_then_subs.flatten())
 
 
@@ -45,7 +45,7 @@ def test_parameter_pattern_simulation(backend, fx_rng: Generator) -> None:
     circuit = Circuit(1)
     circuit.rz(0, alpha)
     pattern = circuit.transpile().pattern
-    result_subs_then_simulate = pattern.subs(alpha, 0.5).simulate_pattern(backend, rng=fx_rng)
+    result_subs_then_simulate = pattern.subs(alpha, 0.5).simulate(backend, rng=fx_rng)
     # We cannot compute probabilities on symbolic states; we explore
     # one arbitrary branch.
     symb_backend: DenseStateBackend
@@ -54,7 +54,7 @@ def test_parameter_pattern_simulation(backend, fx_rng: Generator) -> None:
     elif backend == "densitymatrix":
         symb_backend = DensityMatrixBackend(branch_selector=RandomBranchSelector(pr_calc=False), symbolic=True)
 
-    result_simulate_then_subs = pattern.simulate_pattern(backend=symb_backend, rng=fx_rng).subs(alpha, 0.5)
+    result_simulate_then_subs = pattern.simulate(backend=symb_backend, rng=fx_rng).subs(alpha, 0.5)
     if backend == "statevector":
         assert np.allclose(result_subs_then_simulate.flatten(), result_simulate_then_subs.flatten())
     elif backend == "densitymatrix":

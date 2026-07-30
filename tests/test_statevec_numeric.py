@@ -281,7 +281,7 @@ def test_pattern_simulator(fx_bg: PCG64, jumps: int) -> None:
     pattern = rand_circuit(nqubits, depth=5, rng=rng).transpile().pattern
     pattern.infer_pauli_measurements().remove_pauli_measurements()
 
-    sv_test = pattern.simulate_pattern(backend=StatevectorBackend(), rng=rng)
-    sv_ref = pattern.simulate_pattern(backend=SBGraphix(), rng=rng)
+    sv_test = pattern.simulate(backend=StatevectorBackend(), rng=rng)
+    sv_ref = pattern.simulate(backend=SBGraphix(), rng=rng)
 
     assert sv_ref.isclose(SVGraphix(data=sv_test.flatten()))
