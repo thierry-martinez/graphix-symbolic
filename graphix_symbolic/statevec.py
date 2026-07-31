@@ -21,8 +21,8 @@ from graphix.parameter import (
     with_parameter,
     with_parameters,
 )
-from graphix.sim.base_backend import DenseStateBackend, Matrix, kron, tensordot
-from graphix.sim.statevec import AbstractStatevector, _check_permutation
+from graphix.sim.base_backend import DenseState, DenseStateBackend, Matrix, kron, tensordot
+from graphix.sim.statevec import _check_permutation
 from graphix.states import BasicStates
 
 # override introduced in Python 3.12
@@ -52,10 +52,10 @@ SWAP_TENSOR = np.array(
 )
 
 
-class Statevector(AbstractStatevector[np.object_ | np.complex128], InplaceParameterizable):
+class Statevector(DenseState, InplaceParameterizable):
     """Statevector object."""
 
-    _psi: Matrix
+    psi: Matrix
 
     def __init__(
         self,
@@ -92,7 +92,7 @@ class Statevector(AbstractStatevector[np.object_ | np.complex128], InplaceParame
                 raise ValueError(
                     f"Inconsistent parameters between nqubit = {nqubit} and the inferred number of qubit = {len(data.flatten())}."
                 )
-            self._psi = data.psi.copy()
+            self.psi = data.psi.copy()
             return
 
         # The type
@@ -113,7 +113,7 @@ class Statevector(AbstractStatevector[np.object_ | np.complex128], InplaceParame
             if nqubit is not None and nqubit != 0:
                 raise ValueError("nqubit is not null but input state is empty.")
 
-            self._psi = np.array(1, dtype=np.complex128)
+            self.psi = np.array(1, dtype=np.complex128)
 
         elif isinstance(input_list[0], states.State):
             if nqubit is None:
@@ -132,7 +132,7 @@ class Statevector(AbstractStatevector[np.object_ | np.complex128], InplaceParame
 
             tmp_psi = functools.reduce(lambda m0, m1: np.kron(m0, m1).astype(np.complex128), list_of_sv)
             # reshape
-            self._psi = tmp_psi.reshape((2,) * nqubit)
+            self.psi = tmp_psi.reshape((2,) * nqubit)
         # `SupportsFloat` is needed because `numpy.float64` is not an instance of `SupportsComplex`!
         elif isinstance(input_list[0], (Expression, SupportsComplex, SupportsFloat)):
             if nqubit is None:
@@ -146,14 +146,9 @@ class Statevector(AbstractStatevector[np.object_ | np.complex128], InplaceParame
             # check only if the matrix is not symbolic
             if psi.dtype != "O" and not np.allclose(np.sqrt(np.sum(np.abs(psi) ** 2)), 1):
                 raise ValueError("Input state is not normalized")
-            self._psi = psi.reshape((2,) * nqubit)
+            self.psi = psi.reshape((2,) * nqubit)
         else:
             raise TypeError(f"First element of data has type {type(input_list[0])} whereas Number or State is expected")
-
-    @property
-    @override
-    def psi(self) -> npt.NDArray[np.object_ | np.complex128]:
-        return self._psi
 
     @override
     def add_nodes(self, nqubit: int, data: Data) -> None:
@@ -195,8 +190,8 @@ class Statevector(AbstractStatevector[np.object_ | np.complex128], InplaceParame
             Target qubit index.
             qubit index
         """
-        psi = tensordot(op, self._psi, (1, qubit))
-        self._psi = np.moveaxis(psi, 0, qubit)
+        psi = tensordot(op, self.psi, (1, qubit))
+        self.psi = np.moveaxis(psi, 0, qubit)
 
     @override
     def evolve(self, op: Matrix, qubits: Sequence[int]) -> None:
@@ -221,21 +216,21 @@ class Statevector(AbstractStatevector[np.object_ | np.complex128], InplaceParame
         op_tensor = op.reshape(shape)
         psi = tensordot(
             op_tensor,
-            self._psi,
+            self.psi,
             (tuple(op_dim + i for i in range(len(qubits))), qubits),
         )
-        self._psi = np.moveaxis(psi, range(len(qubits)), qubits)
+        self.psi = np.moveaxis(psi, range(len(qubits)), qubits)
 
     def dims(self) -> tuple[int, ...]:
         """Return the dimensions."""
-        return self._psi.shape
+        return self.psi.shape
 
     # Note that `@property` must appear before `@override` for pyright
     @property
     @override
     def nqubit(self) -> int:
         """Return the number of qubits."""
-        return self._psi.ndim
+        return self.psi.ndim
 
     @override
     def remove_qubit(self, qubit: int) -> None:
@@ -277,17 +272,17 @@ class Statevector(AbstractStatevector[np.object_ | np.complex128], InplaceParame
         qubit : int
             qubit index
         """
-        norm = _norm(self._psi)
+        norm = _norm(self.psi)
         if isinstance(norm, SupportsFloat):
             assert not np.isclose(norm, 0)
-        index: list[slice[int] | int] = [slice(None)] * self._psi.ndim
+        index: list[slice[int] | int] = [slice(None)] * self.psi.ndim
         index[qubit] = 0
-        psi = self._psi[tuple(index)]
+        psi = self.psi[tuple(index)]
         norm = _norm(psi)
         if isinstance(norm, SupportsFloat) and math.isclose(norm, 0):
             index[qubit] = 1
-            psi = self._psi[tuple(index)]
-        self._psi = psi
+            psi = self.psi[tuple(index)]
+        self.psi = psi
         self.normalize()
 
     @override
@@ -300,9 +295,9 @@ class Statevector(AbstractStatevector[np.object_ | np.complex128], InplaceParame
             (control, target) qubit indices.
         """
         # contraction: 2nd index - control index, and 3rd index - target index.
-        psi = tensordot(CZ_TENSOR, self._psi, ((2, 3), qubits))
+        psi = tensordot(CZ_TENSOR, self.psi, ((2, 3), qubits))
         # sort back axes
-        self._psi = np.moveaxis(psi, (0, 1), qubits)
+        self.psi = np.moveaxis(psi, (0, 1), qubits)
 
     def tensor(self, other: Statevector) -> None:
         r"""Tensor product state with other qubits.
@@ -314,13 +309,13 @@ class Statevector(AbstractStatevector[np.object_ | np.complex128], InplaceParame
         other : :class:`graphix.sim.statevec.Statevector`
             statevector to be tensored with self
         """
-        psi_self = self._psi.flatten()
+        psi_self = self.psi.flatten()
         psi_other = other.psi.flatten()
         if psi_self.dtype == np.object_ and psi_other.dtype != np.object_:
             psi_other = psi_other.astype(np.object_, copy=False)  # pragma: nocover
 
         total_num = len(self.dims()) + len(other.dims())
-        self._psi = kron(psi_self, psi_other).reshape((2,) * total_num)
+        self.psi = kron(psi_self, psi_other).reshape((2,) * total_num)
 
     def cnot(self, qubits: tuple[int, int]) -> None:
         """Apply CNOT.
@@ -331,9 +326,9 @@ class Statevector(AbstractStatevector[np.object_ | np.complex128], InplaceParame
             (control, target) qubit indices
         """
         # contraction: 2nd index - control index, and 3rd index - target index.
-        psi = tensordot(CNOT_TENSOR, self._psi, ((2, 3), qubits))
+        psi = tensordot(CNOT_TENSOR, self.psi, ((2, 3), qubits))
         # sort back axes
-        self._psi = np.moveaxis(psi, (0, 1), qubits)
+        self.psi = np.moveaxis(psi, (0, 1), qubits)
 
     @override
     def swap(self, qubits: tuple[int, int]) -> None:
@@ -345,9 +340,9 @@ class Statevector(AbstractStatevector[np.object_ | np.complex128], InplaceParame
             (control, target) qubit indices.
         """
         # contraction: 2nd index - control index, and 3rd index - target index.
-        psi = tensordot(SWAP_TENSOR, self._psi, ((2, 3), qubits))
+        psi = tensordot(SWAP_TENSOR, self.psi, ((2, 3), qubits))
         # sort back axes
-        self._psi = np.moveaxis(psi, (0, 1), qubits)
+        self.psi = np.moveaxis(psi, (0, 1), qubits)
 
     def normalize(self) -> None:
         """Normalize the state in-place."""
@@ -355,16 +350,20 @@ class Statevector(AbstractStatevector[np.object_ | np.complex128], InplaceParame
         # return the original NumPy array itself, since `copy=False` and
         # the `dtype` matches. This is important because the array is
         # then modified in place.
-        if self._psi.dtype == np.object_:
-            psi_o = self._psi.astype(np.object_, copy=False)
+        if self.psi.dtype == np.object_:
+            psi_o = self.psi.astype(np.object_, copy=False)
             norm_o = _norm_symbolic(psi_o)
             psi_o /= norm_o
-            self._psi = psi_o
+            self.psi = psi_o
         else:
-            psi_c = self._psi.astype(np.complex128, copy=False)
+            psi_c = self.psi.astype(np.complex128, copy=False)
             norm_c = _norm_numeric(psi_c)
             psi_c /= norm_c
-            self._psi = psi_c
+            self.psi = psi_c
+
+    def flatten(self) -> Matrix:
+        """Return flattened statevector."""
+        return self.psi.flatten()
 
     @override
     def expectation_single(self, op: Matrix, qubit: int) -> complex:
@@ -411,30 +410,30 @@ class Statevector(AbstractStatevector[np.object_ | np.complex128], InplaceParame
     def replace_parameter(
         self, variable: Parameter, substitute: ExpressionOrSupportsFloat, *, copy: bool = False
     ) -> Statevector:
-        psi = np.vectorize(lambda value: with_parameter(value, variable, substitute))(self._psi)
+        psi = np.vectorize(lambda value: with_parameter(value, variable, substitute))(self.psi)
         if copy:
             result = Statevector()
-            result._psi = np.vectorize(lambda value: with_parameter(value, variable, substitute))(self._psi)
+            result.psi = np.vectorize(lambda value: with_parameter(value, variable, substitute))(self.psi)
             return result
-        self._psi = psi
+        self.psi = psi
         return self
 
     @override
     def replace_parameters(
         self, assignment: Mapping[Parameter, ExpressionOrSupportsFloat], *, copy: bool = False
     ) -> Statevector:
-        psi = np.vectorize(lambda value: with_parameters(value, assignment))(self._psi)
+        psi = np.vectorize(lambda value: with_parameters(value, assignment))(self.psi)
         if copy:
             result = Statevector()
-            result._psi = np.vectorize(lambda value: with_parameters(value, assignment))(self._psi)
+            result.psi = np.vectorize(lambda value: with_parameters(value, assignment))(self.psi)
             return result
-        self._psi = psi
+        self.psi = psi
         return self
 
     @override
     def permute(self, permutation: Sequence[int]) -> None:
         _check_permutation(permutation, self.nqubit)
-        self._psi = np.transpose(self._psi, permutation)
+        self.psi = np.transpose(self.psi, permutation)
 
 
 @dataclass(frozen=True)

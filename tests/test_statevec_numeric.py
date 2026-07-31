@@ -11,7 +11,6 @@ import pytest
 from graphix.clifford import Clifford
 from graphix.random_objects import rand_circuit, rand_state_vector
 from graphix.sim.base_backend import NodeIndex
-from graphix.sim.statevec import AbstractStatevector
 from graphix.sim.statevec import Statevector as SVGraphix
 from graphix.sim.statevec import StatevectorBackend as SBGraphix
 from graphix.states import BasicStates
@@ -199,8 +198,8 @@ class TestStatevectorGraphix:
     def test_entangle(self, fx_bg: PCG64, jumps: int) -> None:
         rng = Generator(fx_bg.jumped(jumps))
         nqubits = 5
-        sv_test: AbstractStatevector = Statevector(generate_rnd_data(rng, nqubits))
-        sv_ref: AbstractStatevector = SVGraphix(data=sv_test.flatten())
+        sv_test = Statevector(generate_rnd_data(rng, nqubits))
+        sv_ref = SVGraphix(data=sv_test.flatten())
         edge: tuple[int, int] = tuple(rng.choice(range(nqubits), size=2, replace=False))
         for sv in [sv_test, sv_ref]:
             sv.entangle(edge)
@@ -211,8 +210,8 @@ class TestStatevectorGraphix:
     def test_swap(self, fx_bg: PCG64, jumps: int) -> None:
         rng = Generator(fx_bg.jumped(jumps))
         nqubits = 5
-        sv_test: AbstractStatevector = Statevector(generate_rnd_data(rng, nqubits))
-        sv_ref: AbstractStatevector = SVGraphix(data=sv_test.flatten())
+        sv_test = Statevector(generate_rnd_data(rng, nqubits))
+        sv_ref = SVGraphix(data=sv_test.flatten())
         edge: tuple[int, int] = tuple(rng.choice(range(nqubits), size=2, replace=False))
         for sv in [sv_test, sv_ref]:
             sv.swap(edge)
@@ -222,8 +221,8 @@ class TestStatevectorGraphix:
     def test_evolve_single(self, fx_rng: Generator) -> None:
         nqubits = 5
         for clifford in Clifford:
-            sv_test: AbstractStatevector = Statevector(generate_rnd_data(fx_rng, nqubits))
-            sv_ref: AbstractStatevector = SVGraphix(data=sv_test.flatten())
+            sv_test = Statevector(generate_rnd_data(fx_rng, nqubits))
+            sv_ref = SVGraphix(data=sv_test.flatten())
             qubit = int(fx_rng.integers(0, nqubits))
             for sv in [sv_test, sv_ref]:
                 sv.evolve_single(clifford.matrix, qubit)
