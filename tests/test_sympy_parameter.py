@@ -40,6 +40,7 @@ def test_parameter_parallel_substitution(fx_rng: Generator) -> None:
 
 
 @pytest.mark.parametrize("backend", ["statevector", "densitymatrix"])
+@pytest.mark.filterwarnings("ignore:Simulating using densitymatrix backend with no noise.")
 def test_parameter_pattern_simulation(backend, fx_rng: Generator) -> None:
     alpha = SympyParameter("alpha")
     circuit = Circuit(1)

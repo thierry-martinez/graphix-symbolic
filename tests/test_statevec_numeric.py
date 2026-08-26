@@ -161,7 +161,7 @@ class TestStatevector:
         sv.remove_qubit(q)
         assert np.allclose(sv.flatten(), sv_ref.flatten())
 
-    @pytest.mark.parametrize("permutation", itertools.permutations(range(3)))
+    @pytest.mark.parametrize("permutation", tuple(itertools.permutations(range(3))))
     def test_permute(self, fx_rng: Generator, permutation: Sequence[int]) -> None:
         nqubits = len(permutation)
         statevec = Statevector(rand_state_vector(nqubits, fx_rng))
